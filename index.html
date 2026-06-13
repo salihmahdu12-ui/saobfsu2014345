@@ -432,7 +432,7 @@
             loading.classList.add('active');
 
             // إرسال طلب التشفير الفعلي إلى سيرفر Vercel الخلفي
-            fetch('/api/obfuscate', {
+            fetch('/obfuscate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
