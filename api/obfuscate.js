@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, '../')));
 
 const statsPath = path.join(__dirname, '../stats.json');
 
-// ذاكرة الكاش العالمية لحفظ النصوص المشفرة بنظام الـ Base64 لضمان سلامة المسافات
+// ذاكرة الكاش العالمية لحفظ النصوص المشفرة بنظام الـ Base64 لضمان سلامة المسافات والـ return
 if (!global.securedCache) {
     global.securedCache = {};
 }
@@ -102,7 +102,7 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    // نقرأ الملف كـ Buffer ونحوله فوراً لـ Base64 عشان نحافظ على الـ return والمسافات الصافية
+    // نقرأ الملف كـ Buffer ونحوله فوراً لـ Base64 لضمان ثبات المسافات الأصلية بالملي
     fs.readFile(outputPath, (readErr, dataBuffer) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
@@ -112,7 +112,7 @@ function handleOutput(outputPath, callback) {
     });
 }
 
-// 🌐 مسار جلب السكريبت (يرسل كود الـ Base64 الصافي)
+// 🌐 مسار جلب السكريبت (يرسل كود الـ Base64 الصافي الصالح للتنفيذ)
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
     const base64Code = global.securedCache[scriptId];
@@ -140,7 +140,7 @@ app.listen(PORT, () => {
     console.log(`==================================================`);
 });
 
-// 🤖 نظام بوت الديسكورد كامل ومقفل بدون أي أخطاء سنتكس
+// 🤖 نظام بوت الديسكورد كامل مكمل بدون نقص سطر واحد
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -212,7 +212,7 @@ if (DISCORD_TOKEN) {
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
 
-                // سطر الـ loadstring الذكي اللي يفك Base64 داخل اللعبة غصب عن أي تلاعب مسافات
+                // سطر الاستدلال المطور لفك شفرة المسافات والـ Base64 تلقائياً باللعبة
                 const finalMessage = `👑 **تم التشفير والحماية بنجاح!**\n\n` +
                                      `\`\`\`lua\nloadstring(syn and syn.crypt.base64_decode(game:HttpGet("${loadstringLink}")) or Crypt.base64_decode(game:HttpGet("${loadstringLink}")) or game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
                                      `📢 **تبي تشفر زي كذا تفضل ديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
