@@ -19,6 +19,7 @@ app.use(express.static(path.join(__dirname, '../')));
 
 const statsPath = path.join(__dirname, '../stats.json');
 
+// ذاكرة الكاش العالمية لحفظ النصوص المشفرة بنظام الـ Base64 لضمان سلامة المسافات
 if (!global.securedCache) {
     global.securedCache = {};
 }
@@ -101,7 +102,7 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    // نقرأ مخرجات هيراكولس كـ Buffer ونحولها فوراً إلى Base64 لمنع تداخل الحروف والمسافات
+    // نقرأ الملف كـ Buffer ونحوله فوراً لـ Base64 عشان نحافظ على الـ return والمسافات الصافية
     fs.readFile(outputPath, (readErr, dataBuffer) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
@@ -111,7 +112,7 @@ function handleOutput(outputPath, callback) {
     });
 }
 
-// 🌐 مسار جلب السكريبت (يرسل كود الـ Base64 الصافي المحمي من تلاعب السيرفرات)
+// 🌐 مسار جلب السكريبت (يرسل كود الـ Base64 الصافي)
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
     const base64Code = global.securedCache[scriptId];
@@ -122,3 +123,104 @@ app.get('/raw/:id', (req, res) => {
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.send(base64Code);
+});
+
+app.post('/obfuscate', (req, res) => {
+    if (!req.body.code) return res.status(400).json({ error: 'No code provided' });
+    
+    runHercules(req.body.code, (err, result) => {
+        if (err) return res.status(500).json({ error: 'Obfuscation Engine Crashed', details: err });
+        res.json({ obfuscated: result });
+    });
+});
+
+app.listen(PORT, () => {
+    console.log(`==================================================`);
+    console.log(`🌐 [SA | OBFUSCATOR] Production Active on Port ${PORT}`);
+    console.log(`==================================================`);
+});
+
+// 🤖 نظام بوت الديسكورد كامل ومقفل بدون أي أخطاء سنتكس
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+
+if (DISCORD_TOKEN) {
+    const client = new Client({
+        intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.MessageContent,
+            GatewayIntentBits.DirectMessages
+        ],
+        partials: [Partials.Channel, Partials.Message, Partials.User] 
+    });
+
+    client.once('ready', () => {
+        console.log(`🤖 [SA | OBFUSCATOR] Bot Active!`);
+    });
+
+    client.on('messageCreate', async (message) => {
+        if (message.author.bot) return;
+
+        const isRealCommand = message.content.trim().startsWith('!obf');
+
+        if (isRealCommand) {
+            if (message.channel.type !== ChannelType.DM) {
+                if (message.deletable) await message.delete().catch(() => {});
+                return message.reply("⚠️ الأوامر تعمل في الخاص فقط لحماية خصوصية أكوادك.").then(msg => {
+                    setTimeout(() => msg.delete().catch(() => {}), 5000);
+                }).catch(() => {});
+            }
+
+            const userStatus = checkUserStatus(message.author.id);
+            if (!userStatus.isVip && userStatus.remaining <= 0) {
+                return message.reply("❌ لقد استهلكت حدّك المجاني المسموح به اليوم (تشفيرين باليوم).\n👑 للاشتراك المفتوح تواصل مع الإدارة.");
+            }
+
+            let codeToObfuscate = "";
+            if (message.attachments.size > 0) {
+                const file = message.attachments.first();
+                try {
+                    const response = await fetch(file.url);
+                    codeToObfuscate = await response.text();
+                } catch (e) {
+                    return message.reply("❌ فشل في تحميل الملف.");
+                }
+            } else {
+                codeToObfuscate = message.content.slice(4).trim();
+            }
+            
+            if (!codeToObfuscate) return message.reply("⚠️ الرجاء كتابة الكود أو إرفاق ملف لتشفيره.");
+
+            const waitingMsg = await message.reply('⏳ **جاري التشفير بأقصى قوة حماية...**');
+
+            runHercules(codeToObfuscate, async (err, result) => {
+                if (err) return waitingMsg.edit(`❌ فشل التشفير، يرجى التحقق من صياغة الكود.`);
+
+                const currentStats = getStats();
+                const today = new Date().toISOString().split('T')[0];
+                currentStats.totalObfuscations += 1;
+                if (!currentStats.uniqueUsers.includes(message.author.id)) currentStats.uniqueUsers.push(message.author.id);
+                if (!userStatus.isVip) {
+                    if (!currentStats.dailyLimits[today]) currentStats.dailyLimits[today] = {};
+                    currentStats.dailyLimits[today][message.author.id] = (currentStats.dailyLimits[today][message.author.id] || 0) + 1;
+                }
+                saveStats(currentStats);
+
+                const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                global.securedCache[scriptToken] = result;
+
+                const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
+                const loadstringLink = `${appUrl}/raw/${scriptToken}`;
+
+                // سطر الـ loadstring الذكي اللي يفك Base64 داخل اللعبة غصب عن أي تلاعب مسافات
+                const finalMessage = `👑 **تم التشفير والحماية بنجاح!**\n\n` +
+                                     `\`\`\`lua\nloadstring(syn and syn.crypt.base64_decode(game:HttpGet("${loadstringLink}")) or Crypt.base64_decode(game:HttpGet("${loadstringLink}")) or game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
+                                     `📢 **تبي تشفر زي كذا تفضل ديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
+
+                await waitingMsg.edit(finalMessage);
+            });
+        }
+    });
+
+    client.login(DISCORD_TOKEN).catch(err => console.error("Discord login failed:", err));
+}
