@@ -4,7 +4,7 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, AttachmentBuilder, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, AttachmentBuilder, ChannelType, Partials } = require('discord.js');
 
 // تفعيل قراءة متغيرات البيئة محلياً من ملف .env
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
@@ -15,8 +15,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
-
-// تشغيل واجهة الموقع الإلكتروني الساكنة من المجلد الرئيسي
 app.use(express.static(path.join(__dirname, '../')));
 
 // دالة المعالجة المشتركة لتشغيل محرك Hercules
@@ -26,15 +24,12 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
-    // كتابة الكود المستلم في ملف مؤقت
     fs.writeFile(tempInputPath, code, 'utf8', (err) => {
         if (err) return callback(err, null);
 
         const herculesPath = path.join(rootDir, 'hercules.lua');
         
-        // تشغيل أمر التشفير مع تحديد مجلد العمل (cwd) لضمان عمل الـ require للموديولات
         exec(`lua "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
-            // حذف ملف الإدخال المؤقت فوراً للحفاظ على الأمان والمساحة
             if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
 
             if (execErr) {
@@ -46,7 +41,6 @@ function runHercules(code, callback) {
                 return callback("Output file not found by engine", null);
             }
 
-            // قراءة الكود المشفر النهائي
             fs.readFile(expectedOutputPath, 'utf8', (readErr, obfuscatedResult) => {
                 if (fs.existsSync(expectedOutputPath)) fs.unlinkSync(expectedOutputPath);
                 if (readErr) return callback(readErr, null);
@@ -71,7 +65,7 @@ app.listen(PORT, () => {
     console.log(`Web server successfully deployed on port ${PORT}`);
 });
 
-// 🤖 [بوت الديسكورد] التشغيل والربط الآمن مع حصر الأوامر في الخاص DM فقط
+// 🤖 [بوت الديسكورد] تشغيل وإصلاح قنوات الخاص ودعم الملفات
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -82,7 +76,8 @@ if (DISCORD_TOKEN) {
             GatewayIntentBits.MessageContent,
             GatewayIntentBits.DirectMessages // استقبال رسائل الخاص
         ],
-        partials: ['CHANNEL'] // لضمان معالجة قنوات الخاص بدقة عالية دون مشاكل الـ Cache
+        // التعديل الأهم: تفعيل الـ Partials بالكامل لإجبار البوت على الرد في الخاص حتى لو كانت القناة غير مخزنة
+        partials: [Partials.Channel, Partials.Message, Partials.User] 
     });
 
     client.once('ready', () => {
@@ -92,42 +87,59 @@ if (DISCORD_TOKEN) {
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
 
-        // التحقق من بدء الأمر بـ !obf
+        // التحقق من أن الرسالة تبدأ بـ !obf
         if (message.content.startsWith('!obf')) {
             
             // 🔒 حماية: إذا تم كتابة الأمر في سيرفر عام وليس في الخاص (DM)
             if (message.channel.type !== ChannelType.DM) {
-                // حذف رسالة المستخدم فوراً لحماية كوده من التسريب أمام أعضاء السيرفر
-                if (message.deletable) {
-                    await message.delete().catch(() => {});
-                }
+                if (message.deletable) await message.delete().catch(() => {});
                 
-                // إرسال تنبيه مؤقت للمستخدم يطلب منه التوجه للشات الخاص بالبوت
-                return message.reply("❌ **أمن الكود أولاً!** لأسباب أمنية وحماية لأكوادك، أمر التشفير يشتغل في **الخاص فقط**. أرسل كودك هنا في رسالة خاصة لي مباشرة.")
+                return message.reply("❌ **أمن الكود أولاً!** لأسباب أمنية وحماية لأكوادك، أمر التشفير يشتغل في **الخاص فقط**. أرسل ملفك أو كودك هنا في رسالة خاصة لي مباشرة.")
                     .then(msg => {
-                        // حذف التنبيه بعد 7 ثوانٍ ليبقى السيرفر نظيفاً
                         setTimeout(() => msg.delete().catch(() => {}), 7000);
                     }).catch(() => {});
             }
 
-            // إذا كنا في الخاص (DM)، يتم التشفير بشكل آمن تماماً
-            const codeToObfuscate = message.content.slice(4).trim();
+            // --- مرحلة استخراج الكود (سواء نص أو ملف مرفق) ---
+            let codeToObfuscate = "";
+
+            // 1. التحقق من وجود ملف مرفق مع الأمر (.lua أو .txt)
+            if (message.attachments.size > 0) {
+                const file = message.attachments.first();
+                const fileExt = path.extname(file.name).toLowerCase();
+
+                if (fileExt === '.lua' || fileExt === '.txt') {
+                    try {
+                        const response = await fetch(file.url);
+                        codeToObfuscate = await response.text();
+                    } catch (fetchErr) {
+                        return message.reply("❌ فشل في تحميل وقراءة الملف المرفق. تأكد من سلامة الملف.");
+                    }
+                } else {
+                    return message.reply("❌ صيغة الملف غير مدعومة! يرجى رفع ملف بصيغة `.lua` أو `.txt` فقط.");
+                }
+            } else {
+                // 2. إذا لم يكن هناك ملف، نأخذ النص المكتوب بعد الأمر مباشرة
+                codeToObfuscate = message.content.slice(4).trim();
+            }
             
+            // تحقق إذا كان المحتوى فارغاً
             if (!codeToObfuscate) {
-                return message.reply('❌ يرجى إدخال الكود المراد تشفيره بعد الأمر! مثال:\n`!obf print("Hello")`');
+                return message.reply('❌ يرجى إدخال الكود أو رفع ملف نصي مع الأمر! أمثلة:\n• `!obf print("Hello")`\n• أرسل ملف `.lua` واكتب معه في الوصف `!obf`');
             }
 
-            const waitingMsg = await message.reply('⏳ جاري تشفير الكود الخاص بك عبر محرك Hercules...');
+            const waitingMsg = await message.reply('⏳ جاري قراءة الكود وتشفيره عبر محرك Hercules...');
 
+            // تشغيل المحرك
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
                     return waitingMsg.edit("❌ فشل التشفير بسبب خطأ بالمحرك:\n```text\n" + err + "\n```");
                 }
 
-                // ديسكورد لا يتحمل الرسائل التي تزيد عن 2000 حرف، لذا نحولها لملف تلقائياً
-                if (result.length > 1900) {
-                    const attachment = new AttachmentBuilder(Buffer.from(result), { name: 'obfuscated.lua' });
-                    await message.reply({ content: '✅ تم التشفير بنجاح! نظراً لطول الكود تم تصديره كملف جاهز للتنزيل:', files: [attachment] });
+                // إذا كان الكود المشفر طويل، أو إذا كان المطور قد أرسل ملفاً من الأساس، نُعيد الناتج كملف دائماً ليكون منسقاً
+                if (result.length > 1900 || message.attachments.size > 0) {
+                    const attachment = new AttachmentBuilder(Buffer.from(result), { name: 'obfuscated_hercules.lua' });
+                    await message.reply({ content: '✅ تم التشفير بنجاح! تم تصدير الناتج كملف جاهز:', files: [attachment] });
                     waitingMsg.delete().catch(() => {});
                 } else {
                     waitingMsg.edit("✅ **تم التشفير بنجاح:**\n```lua\n" + result + "\n```");
