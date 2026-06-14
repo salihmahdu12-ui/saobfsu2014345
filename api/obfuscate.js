@@ -1,4 +1,5 @@
 // api/obfuscate.js
+// 🛡️ Powered by: SA | OBFUSCATOR 🛡️
 const express = require('express');
 const cors = require('cors');
 const { exec } = require('child_process');
@@ -22,15 +23,13 @@ function autoFixLuaCode(code) {
     let fixedCode = code;
     let report = [];
 
-    // 1. تصحيح عمليات الزيادة والنقصان والضرب والقسمة الاختصارية (مثل x += 1 تصبح x = x + 1)
-    // تبحث عن نمط: اسم_المتغير += قيمة
     const operatorRegex = /([a-zA-Z_][a-zA-Z0-9_.]*)\s*([+\-*\/])=\s*([^\n;]+)/g;
     
     if (operatorRegex.test(fixedCode)) {
         fixedCode = fixedCode.replace(operatorRegex, (match, variable, operator, value) => {
             return `${variable} = ${variable} ${operator} ${value}`;
         });
-        report.push("تعديل اختصارات العمليات الحسابية القياسية (مثل `+=`, `-=`) إلى الصياغة الصحيحة");
+        report.push("تم تحويل اختصارات العمليات الحسابية (مثل `+=`, `-=`) إلى صياغة Lua 5.1 القياسية ✨");
     }
 
     return { fixedCode, report };
@@ -82,10 +81,12 @@ app.post('/obfuscate', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Web server successfully deployed on port ${PORT}`);
+    console.log(`==================================================`);
+    console.log(`🌐 [SA | OBFUSCATOR] Web Server Active on Port ${PORT}`);
+    console.log(`==================================================`);
 });
 
-// 🤖 [بوت الديسكورد] تشغيل وإصلاح قنوات الخاص ودعم الأوامر المحدثة
+// 🤖 [بوت الديسكورد] تشغيل وإصلاح قنوات الخاص بدلع واحترافية عالية
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -100,7 +101,9 @@ if (DISCORD_TOKEN) {
     });
 
     client.once('ready', () => {
-        console.log(`Discord Bot initialized. Logged in as ${client.user.tag}`);
+        console.log(`🤖 [SA | OBFUSCATOR] Bot Identity Initialized!`);
+        console.log(`Logged in as: ${client.user.tag}`);
+        console.log(`==================================================`);
     });
 
     client.on('messageCreate', async (message) => {
@@ -109,21 +112,20 @@ if (DISCORD_TOKEN) {
         const isObfCommand = message.content.startsWith('!obf');
         const isRealCommand = message.content.startsWith('!real');
 
-        // إذا كانت الرسالة تبدأ بأحد الأمرين
         if (isObfCommand || isRealCommand) {
             
-            // 🔒 حماية السيرفرات العامة
+            // 🔒 حماية السيرفرات العامة وحذف الرسالة فوراً لحماية أمن المطورين
             if (message.channel.type !== ChannelType.DM) {
                 if (message.deletable) await message.delete().catch(() => {});
                 
-                return message.reply("❌ أمن الكود أولاً!* لأسباب أمنية، أوامر التشفير والتصحيح تشتغل في **الخاص فقط**. أرسل ملفك أو كودك عبر البوت في رسالة خاصة مباشرة.")
+                return message.reply("⚠️ **أمن كودك أولاً!**\nلحماية أسرار مشروعك وأكوادك البرمجية، أوامر التشفير تعمل في **الشات الخاص بالبوت فقط** 🛡️.\n> أرسل ملفك أو كودك هنا مباشرة في الخاص.")
                     .then(msg => {
                         setTimeout(() => msg.delete().catch(() => {}), 7000);
                     }).catch(() => {});
             }
 
             let codeToObfuscate = "";
-            const cmdLength = isObfCommand ? 4 : 5; // تحديد طول الكلمة لقصها بشكل صحيح
+            const cmdLength = isObfCommand ? 4 : 5;
 
             // 1. جلب الكود من الملفات المرفقة
             if (message.attachments.size > 0) {
@@ -135,10 +137,10 @@ if (DISCORD_TOKEN) {
                         const response = await fetch(file.url);
                         codeToObfuscate = await response.text();
                     } catch (fetchErr) {
-                        return message.reply("❌ فشل في تحميل وقراءة الملف المرفق.");
+                        return message.reply("❌ **خطأ:** فشل في تحميل وقراءة الملف المرفق. تأكد من الملف وأعد المحاولة.");
                     }
                 } else {
-                    return message.reply("❌ صيغة الملف غير مدعومة! يرجى رفع ملف بصيغة `.lua` أو `.txt` فقط.");
+                    return message.reply("⚠️ **صيغة غير مدعومة:** يرجى رفع ملف بصيغة `.lua` أو `.txt` فقط لضمان سلامة التشفير.");
                 }
             } else {
                 // 2. جلب الكود من النص المكتوب
@@ -146,39 +148,44 @@ if (DISCORD_TOKEN) {
             }
             
             if (!codeToObfuscate) {
-                return message.reply(`❌ يرجى إدخال الكود أو رفع ملف بصيغة txt / lua مع الأمر! أمثلة:\n• \`!obf print("Hello")\`\n• \`!real x += 1\` (للتصحيح والتشفير التلقائي)`);
+                return message.reply(`⭐ **مرحباً بك في SA | OBFUSCATOR**\nيرجى إرسال الكود أو رفع ملف نصي مع الأمر هكذا:\n• \`!obf print("Hello")\`\n• \`!real\` (لتصحيح أخطاء السنتكس وتشفير الكود تلقائياً)`);
             }
 
             let finalReportMessage = "";
 
-            // ✨ إذا استخدم المطور أمر !real السحري
+            // ✨ تفعيل ميزة التصحيح السحرية !real
             if (isRealCommand) {
                 const fixResult = autoFixLuaCode(codeToObfuscate);
                 codeToObfuscate = fixResult.fixedCode;
                 
                 if (fixResult.report.length > 0) {
-                    finalReportMessage = "🛠️ ** التصحيح التلقائي:**\n" + fixResult.report.map(r => `• ${r}`).join('\n') + "\n\n";
+                    finalReportMessage = "🛠️ **[تقرير المصلح الآلي]:**\n" + fixResult.report.map(r => `> ${r}`).join('\n') + "\n\n";
                 } else {
-                    finalReportMessage = "✨ تم فحص الكود ولم يتم العثور على أخطاء جاري التشفير مباشرة...\n\n";
+                    finalReportMessage = "🔍 **[تقرير الفحص]:** الكود سليم ولا يحتوي على أخطاء صياغة شائعة، جاري التشفير فوراً...\n\n";
                 }
             }
 
-            const waitingMsg = await message.reply('⏳ جاري تشفير الكود الخاص بك عبر  SA | OBFUSACTOR ...');
+            // 🌀 دلع التحميل: إرسال رسالة انتظار تفاعلية مع إيموجي متحرك
+            const waitingMsg = await message.reply('⏳ **[SA | OBFUSCATOR]**\n> ⚙️ جاري معالجة الكود وحقنه داخل المحرك الافتراضي... يرجى الانتظار ثانية.');
 
-            // تشغيل محرك التشفير
+            // تشغيل محرك التشفير الرئيسي
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
-                    return waitingMsg.edit(`❌ فشل التشفير بسبب خطأ استخدم امر !real`);
+                    return waitingMsg.edit(`❌ **فشل التشفير بسبب خطأ بالمحرك:**\n\`\`\`text\n${err}\n\`\`\`\n💡 **تلميح:** إذا كان كودك مأخوذ من Roblox أو لغات حديثة، جرب استخدام أمر \`!real\` ليقوم البوت بتهيئة الصياغة تلقائياً.`);
                 }
 
-                const responseText = finalReportMessage + "✅ **تم التشفير بنجاح!**";
+                // دمج التقارير والحقوق الرسمية المظهرية للبوت
+                const footerText = "\n\n✨ *تم التشفير بنجاح بواسطة برمجيات: **SA | OBFUSCATOR***";
+                const fullResponseText = finalReportMessage + "💎 **[SA | OBFUSCATOR] - التشفير النهائي جاهز ومحصن:**" + footerText;
 
+                // إذا كان الناتج طويلاً أو أرسل ملفاً، نعيد له الناتج كملف فخم ومنظم
                 if (result.length > 1900 || message.attachments.size > 0) {
-                    const attachment = new AttachmentBuilder(Buffer.from(result), { name: 'obfuscated_hercules.lua' });
-                    await message.reply({ content: responseText, files: [attachment] });
+                    const attachment = new AttachmentBuilder(Buffer.from(result), { name: 'SA_OBFUSCATOR_Result.lua' });
+                    await message.reply({ content: fullResponseText, files: [attachment] });
                     waitingMsg.delete().catch(() => {});
                 } else {
-                    waitingMsg.edit(`${responseText}\n\`\`\`lua\n${result}\n\`\`\``);
+                    // إذا كان الكود قصيراً، يظهر بداخل بوكس برميجي أنيق
+                    waitingMsg.edit(`${fullResponseText}\n\`\`\`lua\n${result}\n\`\`\``);
                 }
             });
         }
@@ -186,5 +193,5 @@ if (DISCORD_TOKEN) {
 
     client.login(DISCORD_TOKEN).catch(err => console.error("Discord login failed:", err));
 } else {
-    console.log("Environment variable 'DISCORD_TOKEN' not set. Discord bot feature is suspended.");
+    console.log("[SA | OBFUSCATOR] Environment variable 'DISCORD_TOKEN' not set. Bot feature suspended.");
 }
