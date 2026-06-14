@@ -73,9 +73,9 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
-    // ✨ تعديل ذكي: إذا كان الكود سطر واحد أو قصير جداً، نغلفه داخل دالة مجهولة عشان الـ VM يقبله وما يـكراش
+    // تغليف مرن للأكواد القابلة للتنفيذ المباشر
     let processedCode = code;
-    if (code.trim().length < 30 || !code.includes('function') && code.split('\n').length <= 2) {
+    if (code.trim().length < 30 || (!code.includes('function') && code.split('\n').length <= 2)) {
         processedCode = `task.spawn(function()\n${code}\nend)`;
     }
 
@@ -83,29 +83,38 @@ function runHercules(code, callback) {
         if (err) return callback(err, null);
 
         const herculesPath = path.join(rootDir, 'hercules.lua');
-        const luaCommand = process.platform === "win32" ? "lua" : "lua5.1";
         
-        exec(`${luaCommand} "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
-            if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
-
+        // تجربة تشغيل الأمر عبر المحرك المتاح بالسيرفر بشكل مباشر ومستقر
+        exec(`lua "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
             if (execErr) {
-                if (fs.existsSync(expectedOutputPath)) fs.unlinkSync(expectedOutputPath);
-                return callback(stderr || execErr.message, null);
+                // محاولة برمجية ثانية باستخدام المعالج البديل في حال اختلاف البيئة البرمجية بـ Railway
+                exec(`lua5.1 "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr2, stdout2, stderr2) => {
+                    if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
+                    
+                    if (execErr2) {
+                        if (fs.existsSync(expectedOutputPath)) fs.unlinkSync(expectedOutputPath);
+                        return callback(stderr2 || execErr2.message, null);
+                    }
+                    handleOutput(expectedOutputPath, callback);
+                });
+            } else {
+                if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
+                handleOutput(expectedOutputPath, callback);
             }
-
-            if (!fs.existsSync(expectedOutputPath)) {
-                return callback("Output file not found by engine", null);
-            }
-
-            fs.readFile(expectedOutputPath, 'utf8', (readErr, obfuscatedResult) => {
-                if (fs.existsSync(expectedOutputPath)) fs.unlinkSync(expectedOutputPath);
-                if (readErr) return callback(readErr, null);
-                
-                // إضافة طباعة الحقوق أول ما يشتغل السكريبت بداخل اللعبة
-                const watermark = `print("[SA | OBFUSCATOR] تمت الحماية بواسطة")\n`;
-                callback(null, watermark + obfuscatedResult);
-            });
         });
+    });
+}
+
+function handleOutput(outputPath, callback) {
+    if (!fs.existsSync(outputPath)) {
+        return callback("Output file missing", null);
+    }
+    fs.readFile(outputPath, 'utf8', (readErr, obfuscatedResult) => {
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+        if (readErr) return callback(readErr, null);
+        
+        const watermark = `print("[SA | OBFUSCATOR] تمت الحماية بواسطة")\n`;
+        callback(null, watermark + obfuscatedResult);
     });
 }
 
@@ -118,15 +127,13 @@ app.get('/raw/:id', (req, res) => {
         return res.status(404).send('Error: Script expired or not found.');
     }
 
-    // جلب الـ User-Agent لمعرفة من يتصل بالسيرفر
     const userAgent = req.headers['user-agent'] || '';
 
-    // إذا كان الطلب قادم من متصفح عادي (كروم، فايرفوكس، سفاري، الخ) ارفض الوصول تماماً!
+    // حظر المتصفحات لحماية الكود من الكشف المباشر
     if (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Windows')) {
         return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied: Direct browser access to this source script is prohibited.');
     }
 
-    // إذا كان الطلب نظيفاً ومن محرك اللعبة، أرسل له السورس كود بأمان
     res.setHeader('Content-Type', 'text/plain');
     res.send(scriptCode);
 });
@@ -203,7 +210,6 @@ if (DISCORD_TOKEN) {
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) return waitingMsg.edit(`❌ فشل التشفير، يرجى التحقق من صياغة الكود.`);
 
-                // تحديث الإحصائيات
                 const currentStats = getStats();
                 const today = new Date().toISOString().split('T')[0];
                 currentStats.totalObfuscations += 1;
@@ -214,15 +220,12 @@ if (DISCORD_TOKEN) {
                 }
                 saveStats(currentStats);
 
-                // حفظ الكود المشفر في الذاكرة وتوليد معرّف عشوائي له
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                 encryptedScripts[scriptToken] = result;
 
-                // رابط السيرفر المستضاف على Railway
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
 
-                // تجهيز رسالة التسليم الفخمة والمطلوبة بالضبط
                 const finalMessage = `👑 **تم التشفير والحماية بنجاح!**\n\n` +
                                      `\`\`\`lua\nloadstring(game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
                                      `📢 **تبي تشفر زي كذا تفضل ديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
