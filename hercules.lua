@@ -261,19 +261,19 @@ local function main()
     }
 
     local features = {
-        control_flow = true,          -- ✨ مفعّل لحماية الهيكل البرمجي
-        string_encoding = true,       -- ✨ مفعّل لإخفاء الكلمات البرمجية بذكاء
-        variable_renaming = true,     -- 👑 مفعّل لتوليد أسماء المتغيرات العشوائية الفخمة
-        garbage_code = true,          -- ✨ مفعّل لحقن الأسطر الوهمية لزيادة الصعوبة
-        opaque_predicates = false,
-        bytecode_encoding = false,     -- 🚫 مقفل تماماً لإلغاء ستايل الأرقام والباكسلاش المزعج
-        compressor = false,
-        StringToExpressions = true,   -- ✨ مفعّل لتحويل المعادلات الرياضية
-        VirtualMachine = false,
-        WrapInFunction = true,        -- ✨ مفعّل لتغليف الكود داخل دالة حماية ذكية
-        function_inlining = false,
-        dynamic_code = false,
-        antitamper = false,
+        control_flow = true,
+        string_encoding = true,
+        variable_renaming = true,
+        garbage_code = true,
+        opaque_predicates = true,
+        bytecode_encoding = true,     -- 🔥 تم إرجاع قوة التشفير العددي والبايتكود الكاملة
+        compressor = true,
+        StringToExpressions = true,
+        VirtualMachine = true,        -- 🔥 تشغيل أقوى ميزة حماية (الـ VM) لمنع الفك والسرقة
+        WrapInFunction = true,
+        function_inlining = true,
+        dynamic_code = true,
+        antitamper = true,
     }
 
     for i = 2, #arg do
