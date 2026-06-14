@@ -19,7 +19,6 @@ app.use(express.static(path.join(__dirname, '../')));
 
 const statsPath = path.join(__dirname, '../stats.json');
 
-// 🧠 ذاكرة الـ Global المؤقتة والمستقرة طالما السيرفر يعمل
 if (!global.securedCache) {
     global.securedCache = {};
 }
@@ -102,26 +101,30 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    fs.readFile(outputPath, 'utf8', (readErr, obfuscatedResult) => {
+    // نقرأ الملف بصيغة نصوص خام متوافقة مع الأنظمة اللاتينية لحفظ التشفير
+    fs.readFile(outputPath, 'latin1', (readErr, obfuscatedResult) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
         callback(null, obfuscatedResult);
     });
 }
 
-// 🌐 مسار جلب السكريبت المفتوح تماماً لضمان وصوله للـ Executor بدون تعقيد
+// 🌐 مسار جلب السكريبت المطور كلياً لإرسال نصوص مشفرة بدون أي تشويه
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
     const scriptCode = global.securedCache[scriptId];
 
     if (!scriptCode) {
-        // نرسل تعليق لوا عشان اللعبة تفهم الرابط حتى لو منتهي ولا يعطي شاشة فاضية
-        return res.status(200).send('-- [SA] Error: Script token expired or server restarted. Please re-obfuscate.');
+        return res.status(200).send('-- [SA] Error: Script not found or expired.');
     }
 
-    // شلنا حظر المتصفحات بالكامل عشان نضمن إن الـ Executor يستقبل البيانات خام مية بالمية
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(scriptCode);
+    // نرسل الـ Headers بأبسط طريقة ممكنة ونحدد الـ latin1 عشان الـ Executor يقرأ الكود صح
+    res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=ISO-8859-1',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+    });
+    
+    res.end(scriptCode, 'latin1');
 });
 
 app.post('/obfuscate', (req, res) => {
@@ -205,7 +208,6 @@ if (DISCORD_TOKEN) {
                 }
                 saveStats(currentStats);
 
-                // حفظ الكود بداخل الـ Cache العالمي المستقر
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                 global.securedCache[scriptToken] = result;
 
