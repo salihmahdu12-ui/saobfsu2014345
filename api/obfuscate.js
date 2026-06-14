@@ -17,6 +17,25 @@ app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, '../')));
 
+// دالة ذكية لتصحيح أخطاء الـ Lua الشائعة تلقائياً قبل التشفير
+function autoFixLuaCode(code) {
+    let fixedCode = code;
+    let report = [];
+
+    // 1. تصحيح عمليات الزيادة والنقصان والضرب والقسمة الاختصارية (مثل x += 1 تصبح x = x + 1)
+    // تبحث عن نمط: اسم_المتغير += قيمة
+    const operatorRegex = /([a-zA-Z_][a-zA-Z0-9_.]*)\s*([+\-*\/])=\s*([^\n;]+)/g;
+    
+    if (operatorRegex.test(fixedCode)) {
+        fixedCode = fixedCode.replace(operatorRegex, (match, variable, operator, value) => {
+            return `${variable} = ${variable} ${operator} ${value}`;
+        });
+        report.push("تعديل اختصارات العمليات الحسابية القياسية (مثل `+=`, `-=`) إلى صياغة Lua 5.1 القياسية");
+    }
+
+    return { fixedCode, report };
+}
+
 // دالة المعالجة المشتركة لتشغيل محرك Hercules
 function runHercules(code, callback) {
     const rootDir = path.join(__dirname, '../');
@@ -28,8 +47,6 @@ function runHercules(code, callback) {
         if (err) return callback(err, null);
 
         const herculesPath = path.join(rootDir, 'hercules.lua');
-        
-        // تحديد مفسر لغة Lua بناءً على نظام التشغيل (ويندوز أو لينكس داخل سيرفر Railway)
         const luaCommand = process.platform === "win32" ? "lua" : "lua5.1";
         
         exec(`${luaCommand} "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
@@ -68,7 +85,7 @@ app.listen(PORT, () => {
     console.log(`Web server successfully deployed on port ${PORT}`);
 });
 
-// 🤖 [بوت الديسكورد] تشغيل وإصلاح قنوات الخاص ودعم الملفات النصية و الـ Lua
+// 🤖 [بوت الديسكورد] تشغيل وإصلاح قنوات الخاص ودعم الأوامر المحدثة
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -79,7 +96,6 @@ if (DISCORD_TOKEN) {
             GatewayIntentBits.MessageContent,
             GatewayIntentBits.DirectMessages
         ],
-        // تفعيل الـ Partials بالكامل لضمان الرد الفوري في الخاص وعدم تجاهل الرسائل
         partials: [Partials.Channel, Partials.Message, Partials.User] 
     });
 
@@ -90,21 +106,26 @@ if (DISCORD_TOKEN) {
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
 
-        if (message.content.startsWith('!obf')) {
+        const isObfCommand = message.content.startsWith('!obf');
+        const isRealCommand = message.content.startsWith('!real');
+
+        // إذا كانت الرسالة تبدأ بأحد الأمرين
+        if (isObfCommand || isRealCommand) {
             
-            // 🔒 حماية: إذا تم كتابة الأمر في سيرفر عام وليس في الخاص (DM)
+            // 🔒 حماية السيرفرات العامة
             if (message.channel.type !== ChannelType.DM) {
                 if (message.deletable) await message.delete().catch(() => {});
                 
-                return message.reply("❌ **أمن الكود أولاً!** لأسباب أمنية وحماية لأكوادك، أمر التشفير يشتغل في **الخاص فقط**. أرسل ملفك أو كودك هنا في رسالة خاصة لي مباشرة.")
+                return message.reply("❌ **أمن الكود أولاً!** لأسباب أمنية، أوامر التشفير والتصحيح تشتغل في **الخاص فقط**. أرسل ملفك أو كودك هنا في رسالة خاصة مباشرة.")
                     .then(msg => {
                         setTimeout(() => msg.delete().catch(() => {}), 7000);
                     }).catch(() => {});
             }
 
             let codeToObfuscate = "";
+            const cmdLength = isObfCommand ? 4 : 5; // تحديد طول الكلمة لقصها بشكل صحيح
 
-            // 1. التحقق من وجود ملف مرفق مع الأمر (.lua أو .txt)
+            // 1. جلب الكود من الملفات المرفقة
             if (message.attachments.size > 0) {
                 const file = message.attachments.first();
                 const fileExt = path.extname(file.name).toLowerCase();
@@ -114,34 +135,50 @@ if (DISCORD_TOKEN) {
                         const response = await fetch(file.url);
                         codeToObfuscate = await response.text();
                     } catch (fetchErr) {
-                        return message.reply("❌ فشل في تحميل وقراءة الملف المرفق. تأكد من سلامة الملف.");
+                        return message.reply("❌ فشل في تحميل وقراءة الملف المرفق.");
                     }
                 } else {
                     return message.reply("❌ صيغة الملف غير مدعومة! يرجى رفع ملف بصيغة `.lua` أو `.txt` فقط.");
                 }
             } else {
-                // 2. إذا لم يكن هناك ملف، نأخذ النص المكتوب بعد الأمر مباشرة
-                codeToObfuscate = message.content.slice(4).trim();
+                // 2. جلب الكود من النص المكتوب
+                codeToObfuscate = message.content.slice(cmdLength).trim();
             }
             
             if (!codeToObfuscate) {
-                return message.reply('❌ يرجى إدخال الكود أو رفع ملف نصي مع الأمر! أمثلة:\n• `!obf print("Hello")`\n• أرسل ملف `.lua` واكتب معه في الوصف `!obf`');
+                return message.reply(`❌ يرجى إدخال الكود أو رفع ملف نصي مع الأمر! أمثلة:\n• \`!obf print("Hello")\`\n• \`!real x += 1\` (للتصحيح والتشفير التلقائي)`);
             }
 
-            const waitingMsg = await message.reply('⏳ جاري قراءة الكود وتشفيره عبر محرك Hercules...');
+            let finalReportMessage = "";
 
+            // ✨ إذا استخدم المطور أمر !real السحري
+            if (isRealCommand) {
+                const fixResult = autoFixLuaCode(codeToObfuscate);
+                codeToObfuscate = fixResult.fixedCode;
+                
+                if (fixResult.report.length > 0) {
+                    finalReportMessage = "🛠️ **تقرير التصحيح التلقائي:**\n" + fixResult.report.map(r => `• ${r}`).join('\n') + "\n\n";
+                } else {
+                    finalReportMessage = "✨ تم فحص الكود ولم يتم العثور على أخطاء صياغة شائعة، جاري التشفير مباشرة...\n\n";
+                }
+            }
+
+            const waitingMsg = await message.reply('⏳ جاري معالجة وتشفير الكود الخاص بك عبر محرك Hercules...');
+
+            // تشغيل محرك التشفير
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
-                    return waitingMsg.edit("❌ فشل التشفير بسبب خطأ بالمحرك:\n```text\n" + err + "\n```");
+                    return waitingMsg.edit(`❌ فشل التشفير بسبب خطأ بالمحرك:\n\`\`\`text\n${err}\n\`\`\`\n💡 نصيحة: إذا كان الكود يحتوي على صياغة غير قياسية، جرب استخدام أمر \`!real\` بدلاً من \`!obf\` ليقوم البوت بتصحيحه تلقائياً.`);
                 }
 
-                // إذا كان الناتج طويلاً أو تم رفع ملف، يُعاد بصيغة ملف لتنظيمه بداخل الخاص
+                const responseText = finalReportMessage + "✅ **تم التشفير بنجاح!**";
+
                 if (result.length > 1900 || message.attachments.size > 0) {
                     const attachment = new AttachmentBuilder(Buffer.from(result), { name: 'obfuscated_hercules.lua' });
-                    await message.reply({ content: '✅ تم التشفير بنجاح! تم تصدير الناتج كملف جاهز:', files: [attachment] });
+                    await message.reply({ content: responseText, files: [attachment] });
                     waitingMsg.delete().catch(() => {});
                 } else {
-                    waitingMsg.edit("✅ **تم التشفير بنجاح:**\n```lua\n" + result + "\n```");
+                    waitingMsg.edit(`${responseText}\n\`\`\`lua\n${result}\n\`\`\``);
                 }
             });
         }
