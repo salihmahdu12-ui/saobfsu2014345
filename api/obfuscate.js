@@ -18,9 +18,12 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, '../')));
 
 const statsPath = path.join(__dirname, '../stats.json');
+const scriptsDir = path.join(__dirname, '../secured_scripts');
 
-// ذاكرة مؤقتة لحفظ السكريبتات المشفرة وإعطائها معرّف فريد للرابط
-const encryptedScripts = {};
+// إنشاء مجلد حفظ السكريبتات تلقائياً إذا كان غير موجود لضمان عدم ضياع الأكواد
+if (!fs.existsSync(scriptsDir)) {
+    fs.mkdirSync(scriptsDir, { recursive: true });
+}
 
 function getStats() {
     if (!fs.existsSync(statsPath)) {
@@ -73,7 +76,6 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
-    // نرسل الكود الأصلي بدون أي تعديل عشان هيراكولس يشتغل بقوته الكاملة
     fs.writeFile(tempInputPath, code, 'utf8', (err) => {
         if (err) return callback(err, null);
 
@@ -105,33 +107,33 @@ function handleOutput(outputPath, callback) {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
         
-        // ✨ تم إلغاء سهر الـ print، وإضافة مسافة سطرين فارغين بالكامل للترتيب والأمان قبل الـ return
         const cleanResult = obfuscatedResult + "\n\n\n";
         callback(null, cleanResult);
     });
 }
 
-// 🌐 مسار الويب لجلب السكريبت (يحجب المتصفحات ويقبل نظام ألعاب اللوا فقط)
+// 🌐 مسار جلب السكريبت المستقر والمفتوح تماماً للعبة والـ Executors
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
-    const scriptCode = encryptedScripts[scriptId];
+    const scriptPath = path.join(scriptsDir, `${scriptId}.lua`);
 
-    if (!scriptCode) {
-        return res.status(404).send('Error: Script expired or not found.');
+    // التأكد من وجود الملف حركياً بداخل السيرفر
+    if (!fs.existsSync(scriptPath)) {
+        return res.status(404).send('-- Error: Script key not found or expired.');
     }
 
     const userAgent = req.headers['user-agent'] || '';
 
-    // حظر المتصفحات بالكامل لحماية السورس كود من الكشف المباشر
-    if (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Windows')) {
-        return res.status(403).send('لاتحاول ماتقدر تفك هههههههههههههههههه تبي تشفر زي كذا تفضل قناة الديسكورد https://discord.gg/SMDKFTttCW');
+    // حظر المتصفحات العادية فقط (كروم، سفاري) لحماية السورس، والسماح للعبة والـ Executor بالتنفيذ الفوري
+    if ((userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && !userAgent.includes('Roblox')) {
+        return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied: Direct browser access is prohibited.');
     }
 
-    res.setHeader('Content-Type', 'text/plain');
+    const scriptCode = fs.readFileSync(scriptPath, 'utf8');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.send(scriptCode);
 });
 
-// استقبال طلبات التشفير العادية من الموقع
 app.post('/obfuscate', (req, res) => {
     if (!req.body.code) return res.status(400).json({ error: 'No code provided' });
     
@@ -147,7 +149,7 @@ app.listen(PORT, () => {
     console.log(`==================================================`);
 });
 
-// 🤖 نظام بوت الديسكورد المطور لتسليم روابط الـ Loadstring
+// 🤖 نظام بوت الديسكورد
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -213,16 +215,18 @@ if (DISCORD_TOKEN) {
                 }
                 saveStats(currentStats);
 
+                // توليد توكن فريد وحفظ الكود بملف حقيقي بداخل المجلد
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                encryptedScripts[scriptToken] = result;
+                const savePath = path.join(scriptsDir, `${scriptToken}.lua`);
+                
+                fs.writeFileSync(savePath, result, 'utf8');
 
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
 
-                // الرسالة الفخمة المعتمدة مع رابط الـ ديسكورد والمظهر النظيف
                 const finalMessage = `👑 **تم التشفير والحماية بنجاح!**\n\n` +
                                      `\`\`\`lua\nloadstring(game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
-                                     `📢 **يرجى الاانضمام الى قناة الديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
+                                     `📢 **تبي تشفر زي كذا تفضل ديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
 
                 await waitingMsg.edit(finalMessage);
             });
