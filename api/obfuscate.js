@@ -178,6 +178,13 @@ if (DISCORD_TOKEN) {
 
         const isRealCommand = message.content.startsWith('!obf');
         const isResCommand = message.content.startsWith('!stats');
+        const isWelCommand = message.content.startsWith('!wel');
+
+        // 👋 [أمر الترحيب الجديد !wel] يعمل بالسيرفرات العامة
+        if (isWelCommand) {
+            if (message.deletable) await message.delete().catch(() => {});
+            return message.channel.send(`⭐ **مرحباً بكم في منصة الحماية الاحترافية!**\n\nأهلاً، أنا بوت **SA | ALONE** المساعد الذكي لتشفير وحماية ملفاتك 🛡️.\n> 📥 تفضل بزيارة **الشات الخاص بالبوت** لكي تبدأ بتشفير وحماية أكوادك بكل سهولة وأمان.\n\n✨ اضغط على اسم البوت وأرسل ملفك أو استخدم أمر \`!obf\` مباشرة هناك!`);
+        }
 
         // 📊 [أمر الإحصائيات !stats]
         if (isResCommand) {
