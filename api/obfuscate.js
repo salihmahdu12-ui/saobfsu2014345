@@ -176,11 +176,10 @@ if (DISCORD_TOKEN) {
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
 
-        const isObfCommand = message.content.startsWith('!obf');
-        const isRealCommand = message.content.startsWith('!real');
-        const isResCommand = message.content.startsWith('!res');
+        const isRealCommand = message.content.startsWith('!obf');
+        const isResCommand = message.content.startsWith('!stats');
 
-        // 📊 [أمر الإحصائيات الجديد !res]
+        // 📊 [أمر الإحصائيات !stats]
         if (isResCommand) {
             if (message.channel.type !== ChannelType.DM) {
                 if (message.deletable) await message.delete().catch(() => {});
@@ -202,7 +201,7 @@ if (DISCORD_TOKEN) {
             return message.reply(`📊 **إحصائيات منصة SA | OBFUSCATOR:**\n\n> 💎 **إجمالي عمليات التشفير الناجحة للمنصة:** \`${stats.totalObfuscations}\` مرة.\n> 👥 **عدد المستخدمين الفريدين للبوت:** \`${stats.uniqueUsers.length}\` مستخدم.\n\n${statusText}\n\n✨ فخورين بتقديم أفضل حماية لأكوادكم!`);
         }
 
-        if (isObfCommand || isRealCommand) {
+        if (isRealCommand) {
             
             // 🔒 حماية السيرفرات العامة وحذف الرسالة فوراً لحماية أمن المطورين
             if (message.channel.type !== ChannelType.DM) {
@@ -221,7 +220,7 @@ if (DISCORD_TOKEN) {
             }
 
             let codeToObfuscate = "";
-            const cmdLength = isObfCommand ? 4 : 5;
+            const cmdLength = 4; // طول الأمر !obf مع المسافة
 
             // 1. جلب الكود من الملفات المرفقة
             if (message.attachments.size > 0) {
@@ -249,16 +248,14 @@ if (DISCORD_TOKEN) {
 
             let finalReportMessage = "";
 
-            // ✨ تفعيل ميزة التصحيح السحرية !real
-            if (isRealCommand) {
-                const fixResult = autoFixLuaCode(codeToObfuscate);
-                codeToObfuscate = fixResult.fixedCode;
-                
-                if (fixResult.report.length > 0) {
-                    finalReportMessage = "🛠️ **[ المصلح االتلقائي]:**\n" + fixResult.report.map(r => `> ${r}`).join('\n') + "\n\n";
-                } else {
-                    finalReportMessage = "🔍 **[تقرير الفحص]:** الكود سليم ولا يحتوي على أخطاء صياغة شائعة، جاري التشفير فوراً...\n\n";
-                }
+            // ✨ تفعيل ميزة التصحيح السحرية تلقائياً مع أمر !obf
+            const fixResult = autoFixLuaCode(codeToObfuscate);
+            codeToObfuscate = fixResult.fixedCode;
+            
+            if (fixResult.report.length > 0) {
+                finalReportMessage = "🛠️ **[ المصلح االتلقائي]:**\n" + fixResult.report.map(r => `> ${r}`).join('\n') + "\n\n";
+            } else {
+                finalReportMessage = "🔍 **[تقرير الفحص]:** الكود سليم ولا يحتوي على أخطاء صياغة شائعة، جاري التشفير فوراً...\n\n";
             }
 
             // 🌀 دلع التحميل: إرسال رسالة انتظار تفاعلية مع إيموجي متحرك
@@ -267,7 +264,7 @@ if (DISCORD_TOKEN) {
             // تشغيل محرك التشفير الرئيسي
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
-                    return waitingMsg.edit(`❌ فشل التشفير جرب بامر !real`);
+                    return waitingMsg.edit(`❌ فشل التشفير يرجى التحقق من صياغة الكود.`);
                 }
 
                 // 📈 تحديث وحفظ الإحصائيات والحد اليومي بعد نجاح التشفير
