@@ -19,10 +19,8 @@ app.use(express.static(path.join(__dirname, '../')));
 
 const statsPath = path.join(__dirname, '../stats.json');
 
-// ذاكرة الكاش العالمية لحفظ النصوص المشفرة بنظام الـ Base64 لضمان سلامة المسافات والـ return
-if (!global.securedCache) {
-    global.securedCache = {};
-}
+// ذاكرة مؤقتة لحفظ السكريبتات المشفرة وإعطائها معرّف فريد للرابط
+const encryptedScripts = {};
 
 function getStats() {
     if (!fs.existsSync(statsPath)) {
@@ -75,6 +73,7 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
+    // نرسل الكود الأصلي بدون أي تعديل عشان هيراكولس يشتغل بقوته الكاملة
     fs.writeFile(tempInputPath, code, 'utf8', (err) => {
         if (err) return callback(err, null);
 
@@ -102,29 +101,37 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    // نقرأ الملف كـ Buffer ونحوله فوراً لـ Base64 لضمان ثبات المسافات والأكواد الأصلية
-    fs.readFile(outputPath, (readErr, dataBuffer) => {
+    fs.readFile(outputPath, 'utf8', (readErr, obfuscatedResult) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
         
-        const base64Code = dataBuffer.toString('base64');
-        callback(null, base64Code);
+        // ✨ تم إلغاء سهر الـ print، وإضافة مسافة سطرين فارغين بالكامل للترتيب والأمان قبل الـ return
+        const cleanResult = obfuscatedResult + "\n\n\n";
+        callback(null, cleanResult);
     });
 }
 
-// 🌐 مسار جلب السكريبت (تم تقفيل الأقواس بشكل سليم مية بالمية لمنع الكراش)
+// 🌐 مسار الويب لجلب السكريبت (يحجب المتصفحات ويقبل نظام ألعاب اللوا فقط)
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
-    const base64Code = global.securedCache[scriptId];
+    const scriptCode = encryptedScripts[scriptId];
 
-    if (!base64Code) {
-        return res.status(200).send('print("Expired Token")');
+    if (!scriptCode) {
+        return res.status(404).send('Error: Script expired or not found.');
     }
 
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(base64Code);
+    const userAgent = req.headers['user-agent'] || '';
+
+    // حظر المتصفحات بالكامل لحماية السورس كود من الكشف المباشر
+    if (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Windows')) {
+        return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied: Direct browser access to this source script is prohibited.');
+    }
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(scriptCode);
 });
 
+// استقبال طلبات التشفير العادية من الموقع
 app.post('/obfuscate', (req, res) => {
     if (!req.body.code) return res.status(400).json({ error: 'No code provided' });
     
@@ -140,7 +147,7 @@ app.listen(PORT, () => {
     console.log(`==================================================`);
 });
 
-// 🤖 نظام بوت الديسكورد كامل ومحمي ومقفل
+// 🤖 نظام بوت الديسكورد المطور لتسليم روابط الـ Loadstring
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -207,14 +214,14 @@ if (DISCORD_TOKEN) {
                 saveStats(currentStats);
 
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                global.securedCache[scriptToken] = result;
+                encryptedScripts[scriptToken] = result;
 
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
 
-                // سطر الـ loadstring الاحترافي لفك الـ Base64 داخل اللعبة فوراً
+                // الرسالة الفخمة المعتمدة مع رابط الـ ديسكورد والمظهر النظيف
                 const finalMessage = `👑 **تم التشفير والحماية بنجاح!**\n\n` +
-                                     `\`\`\`lua\nloadstring(syn and syn.crypt.base64_decode(game:HttpGet("${loadstringLink}")) or Crypt.base64_decode(game:HttpGet("${loadstringLink}")) or game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
+                                     `\`\`\`lua\nloadstring(game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
                                      `📢 **تبي تشفر زي كذا تفضل ديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
 
                 await waitingMsg.edit(finalMessage);
