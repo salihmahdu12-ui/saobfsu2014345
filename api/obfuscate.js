@@ -29,7 +29,10 @@ function runHercules(code, callback) {
 
         const herculesPath = path.join(rootDir, 'hercules.lua');
         
-        exec(`lua "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
+        // تحديد مفسر لغة Lua بناءً على نظام التشغيل (ويندوز أو لينكس داخل سيرفر Railway)
+        const luaCommand = process.platform === "win32" ? "lua" : "lua5.1";
+        
+        exec(`${luaCommand} "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
             if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
 
             if (execErr) {
@@ -65,7 +68,7 @@ app.listen(PORT, () => {
     console.log(`Web server successfully deployed on port ${PORT}`);
 });
 
-// 🤖 [بوت الديسكورد] تشغيل وإصلاح قنوات الخاص ودعم الملفات
+// 🤖 [بوت الديسكورد] تشغيل وإصلاح قنوات الخاص ودعم الملفات النصية و الـ Lua
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -74,9 +77,9 @@ if (DISCORD_TOKEN) {
             GatewayIntentBits.Guilds,
             GatewayIntentBits.GuildMessages,
             GatewayIntentBits.MessageContent,
-            GatewayIntentBits.DirectMessages // استقبال رسائل الخاص
+            GatewayIntentBits.DirectMessages
         ],
-        // التعديل الأهم: تفعيل الـ Partials بالكامل لإجبار البوت على الرد في الخاص حتى لو كانت القناة غير مخزنة
+        // تفعيل الـ Partials بالكامل لضمان الرد الفوري في الخاص وعدم تجاهل الرسائل
         partials: [Partials.Channel, Partials.Message, Partials.User] 
     });
 
@@ -87,7 +90,6 @@ if (DISCORD_TOKEN) {
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
 
-        // التحقق من أن الرسالة تبدأ بـ !obf
         if (message.content.startsWith('!obf')) {
             
             // 🔒 حماية: إذا تم كتابة الأمر في سيرفر عام وليس في الخاص (DM)
@@ -100,7 +102,6 @@ if (DISCORD_TOKEN) {
                     }).catch(() => {});
             }
 
-            // --- مرحلة استخراج الكود (سواء نص أو ملف مرفق) ---
             let codeToObfuscate = "";
 
             // 1. التحقق من وجود ملف مرفق مع الأمر (.lua أو .txt)
@@ -123,20 +124,18 @@ if (DISCORD_TOKEN) {
                 codeToObfuscate = message.content.slice(4).trim();
             }
             
-            // تحقق إذا كان المحتوى فارغاً
             if (!codeToObfuscate) {
                 return message.reply('❌ يرجى إدخال الكود أو رفع ملف نصي مع الأمر! أمثلة:\n• `!obf print("Hello")`\n• أرسل ملف `.lua` واكتب معه في الوصف `!obf`');
             }
 
             const waitingMsg = await message.reply('⏳ جاري قراءة الكود وتشفيره عبر محرك Hercules...');
 
-            // تشغيل المحرك
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
                     return waitingMsg.edit("❌ فشل التشفير بسبب خطأ بالمحرك:\n```text\n" + err + "\n```");
                 }
 
-                // إذا كان الكود المشفر طويل، أو إذا كان المطور قد أرسل ملفاً من الأساس، نُعيد الناتج كملف دائماً ليكون منسقاً
+                // إذا كان الناتج طويلاً أو تم رفع ملف، يُعاد بصيغة ملف لتنظيمه بداخل الخاص
                 if (result.length > 1900 || message.attachments.size > 0) {
                     const attachment = new AttachmentBuilder(Buffer.from(result), { name: 'obfuscated_hercules.lua' });
                     await message.reply({ content: '✅ تم التشفير بنجاح! تم تصدير الناتج كملف جاهز:', files: [attachment] });
