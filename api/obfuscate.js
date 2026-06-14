@@ -19,6 +19,7 @@ app.use(express.static(path.join(__dirname, '../')));
 
 const statsPath = path.join(__dirname, '../stats.json');
 
+// ذاكرة الكاش العالمية لحفظ النصوص المشفرة خام
 if (!global.securedCache) {
     global.securedCache = {};
 }
@@ -101,30 +102,25 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    // نقرأ الملف بصيغة نصوص خام متوافقة مع الأنظمة اللاتينية لحفظ التشفير
-    fs.readFile(outputPath, 'latin1', (readErr, obfuscatedResult) => {
+    fs.readFile(outputPath, 'utf8', (readErr, obfuscatedResult) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
         callback(null, obfuscatedResult);
     });
 }
 
-// 🌐 مسار جلب السكريبت المطور كلياً لإرسال نصوص مشفرة بدون أي تشويه
+// 🌐 المسار الـ RAW الصافي والمفتوح مية بالمية لكل شي
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
     const scriptCode = global.securedCache[scriptId];
 
     if (!scriptCode) {
-        return res.status(200).send('-- [SA] Error: Script not found or expired.');
+        return res.status(200).send('-- [SA] Script Expired');
     }
 
-    // نرسل الـ Headers بأبسط طريقة ممكنة ونحدد الـ latin1 عشان الـ Executor يقرأ الكود صح
-    res.writeHead(200, {
-        'Content-Type': 'text/plain; charset=ISO-8859-1',
-        'Cache-Control': 'no-store, no-cache, must-revalidate, private'
-    });
-    
-    res.end(scriptCode, 'latin1');
+    // إرسال الكود كـ نص عادي جداً بدون أي فلاتر حظر أو تشويه للبايتكود
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.send(scriptCode);
 });
 
 app.post('/obfuscate', (req, res) => {
@@ -214,6 +210,7 @@ if (DISCORD_TOKEN) {
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
 
+                // صيغة الاستدعاء القياسية النظيفة المتوافقة مع كل شي بالكون
                 const finalMessage = `👑 **تم التشفير والحماية بنجاح!**\n\n` +
                                      `\`\`\`lua\nloadstring(game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
                                      `📢 **تبي تشفر زي كذا تفضل ديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
