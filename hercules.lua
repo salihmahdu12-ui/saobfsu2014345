@@ -37,12 +37,12 @@ local colors = {
 local obfuscated_list = {}
 
 local BANNER = colors.blue .. [[
-                                _                     _        __   
+                                _                      _        __   
   /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __/ |      / /_  
  / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|  \ \ / /| |     | '_ \ 
 / __  /|  __/| |  | (__ | |_| || ||  __/\__ \   \ V / | |  _  | (_) |
 \/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_| (_)  \___/ 
-                                                                     ]] .. colors.reset
+                                       ]] .. colors.reset
 
 local function runSanityCheck(original_code, obfuscated_code)
     local function captureOutput(code)
@@ -261,19 +261,19 @@ local function main()
     }
 
     local features = {
-        control_flow = true,
-        string_encoding = true,
-        variable_renaming = true,
-        garbage_code = true,
-        opaque_predicates = true,
-        bytecode_encoding = true,     -- 🔥 تم إرجاع قوة التشفير العددي والبايتكود الكاملة
-        compressor = true,
-        StringToExpressions = true,
-        VirtualMachine = true,        -- 🔥 تشغيل أقوى ميزة حماية (الـ VM) لمنع الفك والسرقة
-        WrapInFunction = true,
-        function_inlining = true,
-        dynamic_code = true,
-        antitamper = true,
+        control_flow = false,
+        string_encoding = false,
+        variable_renaming = false,
+        garbage_code = false,
+        opaque_predicates = false,
+        bytecode_encoding = false,
+        compressor = false,
+        StringToExpressions = false,
+        VirtualMachine = false,
+        WrapInFunction = false,
+        function_inlining = false,
+        dynamic_code = false,
+        antitamper = false,
     }
 
     for i = 2, #arg do
