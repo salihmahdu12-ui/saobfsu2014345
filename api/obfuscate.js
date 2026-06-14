@@ -75,6 +75,7 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
+    // نكتب الملف بنظام النص العادي عشان هيراكولس يقرأ السورس صح
     fs.writeFile(tempInputPath, code, 'utf8', (err) => {
         if (err) return callback(err, null);
 
@@ -102,15 +103,15 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    // نمرر البيانات بنظام السلسلة الثنائية (binary) للحفاظ على البايتكود
-    fs.readFile(outputPath, 'binary', (readErr, obfuscatedResult) => {
+    // نقرأ مخرجات هيراكولس الخام والنهائية
+    fs.readFile(outputPath, 'utf8', (readErr, obfuscatedResult) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
         callback(null, obfuscatedResult);
     });
 }
 
-// 🌐 مسار جلب السكريبت المطور كلياً لإرسال بايتكود خام بدون تعديل
+// 🌐 مسار جلب السكريبت (باستخدام sendFile لضمان عدم تشوه البايتكود)
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
     const scriptPath = path.join(scriptsDir, `${scriptId}.lua`);
@@ -121,21 +122,14 @@ app.get('/raw/:id', (req, res) => {
 
     const userAgent = req.headers['user-agent'] || '';
 
-    // حظر المتصفحات العادية لضمان السرية، والسماح للـ Executors واللعبة
+    // حظر المتصفحات العادية، والسماح للألعاب والـ Executors
     if ((userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && !userAgent.includes('Roblox')) {
         return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied.');
     }
 
-    // ✨ الحل هنا: نقرأ الملف كـ Buffer ونرسله خام مية بالمية لتفادي ضياع أو تشوه البايتكود المعقد
-    const fileBuffer = fs.readFileSync(scriptPath);
-    
-    res.writeHead(200, {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Content-Length': fileBuffer.length,
-        'Cache-Control': 'no-store, no-cache, must-revalidate, private'
-    });
-    
-    res.end(fileBuffer);
+    // ✨ الحل الجذري: إرسال الملف مباشرة كملف نصي خام دون تحميله في الذاكرة كـ String ومقاومة التعديل والـ Headers
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.sendFile(scriptPath);
 });
 
 app.post('/obfuscate', (req, res) => {
@@ -222,8 +216,8 @@ if (DISCORD_TOKEN) {
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                 const savePath = path.join(scriptsDir, `${scriptToken}.lua`);
                 
-                // حفظ بصيغة binary لضمان سلامة الملف مية بالمية
-                fs.writeFileSync(savePath, result, 'binary');
+                // حفظ السكريبت النهائي المشفر بنظام النص الأصلي
+                fs.writeFileSync(savePath, result, 'utf8');
 
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
