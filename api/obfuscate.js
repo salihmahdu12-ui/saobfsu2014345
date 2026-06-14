@@ -160,7 +160,7 @@ if (DISCORD_TOKEN) {
     const client = new Client({
         intents: [
             GatewayIntentBits.Guilds,
-            GatewayIntentBits.GatewayIntentBits || GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.GuildMessages,
             GatewayIntentBits.MessageContent,
             GatewayIntentBits.DirectMessages
         ],
@@ -176,14 +176,14 @@ if (DISCORD_TOKEN) {
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
 
-        const isRealCommand = message.content.startsWith('!obf');
-        const isResCommand = message.content.startsWith('!stats');
-        const isWelCommand = message.content.startsWith('!wel');
+        const isRealCommand = message.content.trim().startsWith('!obf');
+        const isResCommand = message.content.trim().startsWith('!stats');
+        const isWelCommand = message.content.trim().startsWith('!wel');
 
-        // 👋 [أمر الترحيب الجديد !wel] يعمل بالسيرفرات العامة
+        // 👋 [أمر الترحيب !wel] - متاح للرومات العامة فوراً
         if (isWelCommand) {
             if (message.deletable) await message.delete().catch(() => {});
-            return message.channel.send(`⭐ **مرحباً بكم في منصة الحماية الاحترافية!**\n\nأهلاً، أنا بوت **SA | ALONE** المساعد الذكي لتشفير وحماية ملفاتك 🛡️.\n> 📥 تفضل بزيارة **الشات الخاص بالبوت** لكي تبدأ بتشفير وحماية أكوادك بكل سهولة وأمان.\n\n✨ اضغط على اسم البوت وأرسل ملفك أو استخدم أمر \`!obf\` مباشرة هناك!`);
+            return message.channel.send(`⭐ **مرحباً بكم في منصة الحماية الاحترافية!**\n\nأهلاً، أنا بوت **SA | ALONE** المساعد الذكي لتشفير وحماية ملفاتك 🛡️.\n> 📥 تفضل بزيارة **الشات الخاص بالبوت** لكي تبدأ بتشفير وحماية أكوادك بكل سهولة وأمان.\n\n✨ اضغط على اسم البوت وأرسل ملفك أو استخدم أمر \`!obf\` مباشرة هناك!`).catch(err => console.error(err));
         }
 
         // 📊 [أمر الإحصائيات !stats]
