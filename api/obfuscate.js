@@ -18,10 +18,10 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, '../')));
 
 const statsPath = path.join(__dirname, '../stats.json');
-const scriptsDir = path.join(__dirname, '../secured_scripts');
 
-if (!fs.existsSync(scriptsDir)) {
-    fs.mkdirSync(scriptsDir, { recursive: true });
+// 🧠 ذاكرة الـ Global المؤقتة والمستقرة طالما السيرفر يعمل
+if (!global.securedCache) {
+    global.securedCache = {};
 }
 
 function getStats() {
@@ -75,7 +75,6 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
-    // نكتب الملف بنظام النص العادي عشان هيراكولس يقرأ السورس صح
     fs.writeFile(tempInputPath, code, 'utf8', (err) => {
         if (err) return callback(err, null);
 
@@ -103,7 +102,6 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    // نقرأ مخرجات هيراكولس الخام والنهائية
     fs.readFile(outputPath, 'utf8', (readErr, obfuscatedResult) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
@@ -111,25 +109,19 @@ function handleOutput(outputPath, callback) {
     });
 }
 
-// 🌐 مسار جلب السكريبت (باستخدام sendFile لضمان عدم تشوه البايتكود)
+// 🌐 مسار جلب السكريبت المفتوح تماماً لضمان وصوله للـ Executor بدون تعقيد
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
-    const scriptPath = path.join(scriptsDir, `${scriptId}.lua`);
+    const scriptCode = global.securedCache[scriptId];
 
-    if (!fs.existsSync(scriptPath)) {
-        return res.status(404).send('-- Error: Script not found.');
+    if (!scriptCode) {
+        // نرسل تعليق لوا عشان اللعبة تفهم الرابط حتى لو منتهي ولا يعطي شاشة فاضية
+        return res.status(200).send('-- [SA] Error: Script token expired or server restarted. Please re-obfuscate.');
     }
 
-    const userAgent = req.headers['user-agent'] || '';
-
-    // حظر المتصفحات العادية، والسماح للألعاب والـ Executors
-    if ((userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && !userAgent.includes('Roblox')) {
-        return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied.');
-    }
-
-    // ✨ الحل الجذري: إرسال الملف مباشرة كملف نصي خام دون تحميله في الذاكرة كـ String ومقاومة التعديل والـ Headers
+    // شلنا حظر المتصفحات بالكامل عشان نضمن إن الـ Executor يستقبل البيانات خام مية بالمية
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.sendFile(scriptPath);
+    res.send(scriptCode);
 });
 
 app.post('/obfuscate', (req, res) => {
@@ -213,11 +205,9 @@ if (DISCORD_TOKEN) {
                 }
                 saveStats(currentStats);
 
+                // حفظ الكود بداخل الـ Cache العالمي المستقر
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                const savePath = path.join(scriptsDir, `${scriptToken}.lua`);
-                
-                // حفظ السكريبت النهائي المشفر بنظام النص الأصلي
-                fs.writeFileSync(savePath, result, 'utf8');
+                global.securedCache[scriptToken] = result;
 
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
