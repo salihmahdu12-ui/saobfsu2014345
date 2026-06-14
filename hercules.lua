@@ -125,7 +125,7 @@ local function printCliResult(input, output, time, options)
             print(colors.white .. options.sanity_info.got .. colors.reset)
             print(colors.red .. "Please dm 'zeusssz_' on Discord with with the file, or make an issue on the GitHub" .. colors.reset)
             print(colors.red .. "You may also join the Discord Server using the invite link" .. colors.reset)
-        } else
+        else
             print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
         end
     end
@@ -261,16 +261,16 @@ local function main()
     }
 
     local features = {
-        control_flow = false,
-        string_encoding = false,
-        variable_renaming = true,     -- ✨ تم تفعيل تعديل المتغيرات تلقائياً هنا
-        garbage_code = false,
+        control_flow = true,          -- ✨ مفعّل لحماية الهيكل البرمجي
+        string_encoding = true,       -- ✨ مفعّل لإخفاء الكلمات البرمجية بذكاء
+        variable_renaming = true,     -- 👑 مفعّل لتوليد أسماء المتغيرات العشوائية الفخمة
+        garbage_code = true,          -- ✨ مفعّل لحقن الأسطر الوهمية لزيادة الصعوبة
         opaque_predicates = false,
-        bytecode_encoding = false,     -- 🚫 تم إيقاف أكواد الأرقام البايتكود المزعجة تلقائياً هنا
+        bytecode_encoding = false,     -- 🚫 مقفل تماماً لإلغاء ستايل الأرقام والباكسلاش المزعج
         compressor = false,
-        StringToExpressions = false,
+        StringToExpressions = true,   -- ✨ مفعّل لتحويل المعادلات الرياضية
         VirtualMachine = false,
-        WrapInFunction = false,
+        WrapInFunction = true,        -- ✨ مفعّل لتغليف الكود داخل دالة حماية ذكية
         function_inlining = false,
         dynamic_code = false,
         antitamper = false,
