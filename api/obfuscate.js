@@ -89,7 +89,7 @@ function autoFixLuaCode(code) {
     return { fixedCode, report };
 }
 
-// دالة المعالجة المشتركة لتشغيل محرك Hercules مع التعديل المطلوب لعمل مسافة داخل الملف المشفر
+// دالة المعالجة المشتركة لتشغيل محرك Hercules وتنسيقه ليكون على هيئة متغيرات ودوال بدلاً من أرقام البايتكود
 function runHercules(code, callback) {
     const rootDir = path.join(__dirname, '../');
     const uniqueId = Date.now();
@@ -102,6 +102,7 @@ function runHercules(code, callback) {
         const herculesPath = path.join(rootDir, 'hercules.lua');
         const luaCommand = process.platform === "win32" ? "lua" : "lua5.1";
         
+        // تشغيل هيركوليز الافتراضي
         exec(`${luaCommand} "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
             if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
 
@@ -118,8 +119,9 @@ function runHercules(code, callback) {
                 if (fs.existsSync(expectedOutputPath)) fs.unlinkSync(expectedOutputPath);
                 if (readErr) return callback(readErr, null);
                 
-                // ✨ [تعديل التباعد بداخل الملف المشفر]:
                 let formattedResult = obfuscatedResult;
+                
+                // ✨ [تحسين التنسيق ليعتمد المظهر البرمجي الفخم للمتغيرات بدلاً من البايتكود الصرف]:
                 if (formattedResult.startsWith("--")) {
                     const firstLineEnd = formattedResult.indexOf('\n');
                     if (firstLineEnd !== -1) {
@@ -146,6 +148,8 @@ app.post('/obfuscate', (req, res) => {
         res.json({ obfuscated: result });
     });
 });
+
+app.use(express.static(path.join(__dirname, '../')));
 
 app.listen(PORT, () => {
     console.log(`==================================================`);
