@@ -73,7 +73,13 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
-    fs.writeFile(tempInputPath, code, 'utf8', (err) => {
+    // ✨ تعديل ذكي: إذا كان الكود سطر واحد أو قصير جداً، نغلفه داخل دالة مجهولة عشان الـ VM يقبله وما يـكراش
+    let processedCode = code;
+    if (code.trim().length < 30 || !code.includes('function') && code.split('\n').length <= 2) {
+        processedCode = `task.spawn(function()\n${code}\nend)`;
+    }
+
+    fs.writeFile(tempInputPath, processedCode, 'utf8', (err) => {
         if (err) return callback(err, null);
 
         const herculesPath = path.join(rootDir, 'hercules.lua');
@@ -212,8 +218,7 @@ if (DISCORD_TOKEN) {
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                 encryptedScripts[scriptToken] = result;
 
-                // رابط السيرفر المستضاف على Railway (تأكد من تعديل الدومين إذا غيرته بـ Railway)
-                // ملحوظة: Railway يزودك برابط ينتهي بـ .up.railway.app
+                // رابط السيرفر المستضاف على Railway
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
 
