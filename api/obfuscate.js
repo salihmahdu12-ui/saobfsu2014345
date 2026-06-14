@@ -89,7 +89,7 @@ function autoFixLuaCode(code) {
     return { fixedCode, report };
 }
 
-// دالة المعالجة المشتركة لتشغيل محرك Hercules وتنسيقه ليكون على هيئة متغيرات ودوال بدلاً من أرقام البايتكود
+// دالة المعالجة المشتركة لتشغيل محرك Hercules وتنسيقه
 function runHercules(code, callback) {
     const rootDir = path.join(__dirname, '../');
     const uniqueId = Date.now();
@@ -102,7 +102,6 @@ function runHercules(code, callback) {
         const herculesPath = path.join(rootDir, 'hercules.lua');
         const luaCommand = process.platform === "win32" ? "lua" : "lua5.1";
         
-        // تشغيل هيركوليز الافتراضي
         exec(`${luaCommand} "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
             if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
 
@@ -121,7 +120,6 @@ function runHercules(code, callback) {
                 
                 let formattedResult = obfuscatedResult;
                 
-                // ✨ [تحسين التنسيق ليعتمد المظهر البرمجي الفخم للمتغيرات بدلاً من البايتكود الصرف]:
                 if (formattedResult.startsWith("--")) {
                     const firstLineEnd = formattedResult.indexOf('\n');
                     if (firstLineEnd !== -1) {
@@ -148,8 +146,6 @@ app.post('/obfuscate', (req, res) => {
         res.json({ obfuscated: result });
     });
 });
-
-app.use(express.static(path.join(__dirname, '../')));
 
 app.listen(PORT, () => {
     console.log(`==================================================`);
