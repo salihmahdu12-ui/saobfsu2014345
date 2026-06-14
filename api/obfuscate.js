@@ -20,7 +20,6 @@ app.use(express.static(path.join(__dirname, '../')));
 const statsPath = path.join(__dirname, '../stats.json');
 const scriptsDir = path.join(__dirname, '../secured_scripts');
 
-// إنشاء مجلد حفظ السكريبتات تلقائياً إذا كان غير موجود لضمان عدم ضياع الأكواد
 if (!fs.existsSync(scriptsDir)) {
     fs.mkdirSync(scriptsDir, { recursive: true });
 }
@@ -107,24 +106,23 @@ function handleOutput(outputPath, callback) {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
         
-        const cleanResult = obfuscatedResult + "\n\n\n";
-        callback(null, cleanResult);
+        // 🔒 تم تعديلها: تسليم الكود الأصلي الصافي من هيراكولس بدون أسطر إضافية لمنع تفعيل الـ tamper detect
+        callback(null, obfuscatedResult);
     });
 }
 
-// 🌐 مسار جلب السكريبت المستقر والمفتوح تماماً للعبة والـ Executors
+// 🌐 مسار جلب السكريبت (يحجب المتصفحات ويقبل نظام ألعاب اللوا فقط)
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
     const scriptPath = path.join(scriptsDir, `${scriptId}.lua`);
 
-    // التأكد من وجود الملف حركياً بداخل السيرفر
     if (!fs.existsSync(scriptPath)) {
         return res.status(404).send('-- Error: Script key not found or expired.');
     }
 
     const userAgent = req.headers['user-agent'] || '';
 
-    // حظر المتصفحات العادية فقط (كروم، سفاري) لحماية السورس، والسماح للعبة والـ Executor بالتنفيذ الفوري
+    // حظر المتصفحات العادية فقط لحماية السورس، والسماح للعبة والـ Executor بالتنفيذ الفوري
     if ((userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && !userAgent.includes('Roblox')) {
         return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied: Direct browser access is prohibited.');
     }
@@ -149,7 +147,7 @@ app.listen(PORT, () => {
     console.log(`==================================================`);
 });
 
-// 🤖 نظام بوت الديسكورد
+// 🤖 نظام بوت الديسكورد المطور لتسليم روابط الـ Loadstring
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -215,7 +213,6 @@ if (DISCORD_TOKEN) {
                 }
                 saveStats(currentStats);
 
-                // توليد توكن فريد وحفظ الكود بملف حقيقي بداخل المجلد
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                 const savePath = path.join(scriptsDir, `${scriptToken}.lua`);
                 
