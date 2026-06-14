@@ -73,24 +73,16 @@ function runHercules(code, callback) {
     const tempInputPath = path.join(rootDir, `temp_${uniqueId}.lua`);
     const expectedOutputPath = path.join(rootDir, `temp_${uniqueId}_obfuscated.lua`);
 
-    // تغليف مرن للأكواد القابلة للتنفيذ المباشر
-    let processedCode = code;
-    if (code.trim().length < 30 || (!code.includes('function') && code.split('\n').length <= 2)) {
-        processedCode = `task.spawn(function()\n${code}\nend)`;
-    }
-
-    fs.writeFile(tempInputPath, processedCode, 'utf8', (err) => {
+    // نرسل الكود الأصلي بدون أي تعديل عشان هيراكولس يشتغل بقوته الكاملة
+    fs.writeFile(tempInputPath, code, 'utf8', (err) => {
         if (err) return callback(err, null);
 
         const herculesPath = path.join(rootDir, 'hercules.lua');
         
-        // تجربة تشغيل الأمر عبر المحرك المتاح بالسيرفر بشكل مباشر ومستقر
         exec(`lua "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr, stdout, stderr) => {
             if (execErr) {
-                // محاولة برمجية ثانية باستخدام المعالج البديل في حال اختلاف البيئة البرمجية بـ Railway
                 exec(`lua5.1 "${herculesPath}" "${tempInputPath}"`, { cwd: rootDir }, (execErr2, stdout2, stderr2) => {
                     if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
-                    
                     if (execErr2) {
                         if (fs.existsSync(expectedOutputPath)) fs.unlinkSync(expectedOutputPath);
                         return callback(stderr2 || execErr2.message, null);
@@ -113,8 +105,9 @@ function handleOutput(outputPath, callback) {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
         
-        const watermark = `print("[SA | OBFUSCATOR] تمت الحماية بواسطة")\n`;
-        callback(null, watermark + obfuscatedResult);
+        // ✨ تم إلغاء سهر الـ print، وإضافة مسافة سطرين فارغين بالكامل للترتيب والأمان قبل الـ return
+        const cleanResult = obfuscatedResult + "\n\n\n";
+        callback(null, cleanResult);
     });
 }
 
@@ -129,9 +122,9 @@ app.get('/raw/:id', (req, res) => {
 
     const userAgent = req.headers['user-agent'] || '';
 
-    // حظر المتصفحات لحماية الكود من الكشف المباشر
+    // حظر المتصفحات بالكامل لحماية السورس كود من الكشف المباشر
     if (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Windows')) {
-        return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied: Direct browser access to this source script is prohibited.');
+        return res.status(403).send('لاتحاول ماتقدر تفك هههههههههههههههههه تبي تشفر زي كذا تفضل قناة الديسكورد https://discord.gg/SMDKFTttCW');
     }
 
     res.setHeader('Content-Type', 'text/plain');
@@ -226,9 +219,10 @@ if (DISCORD_TOKEN) {
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
 
+                // الرسالة الفخمة المعتمدة مع رابط الـ ديسكورد والمظهر النظيف
                 const finalMessage = `👑 **تم التشفير والحماية بنجاح!**\n\n` +
                                      `\`\`\`lua\nloadstring(game:HttpGet("${loadstringLink}"))()\n\`\`\`\n\n` +
-                                     `📢 **تبي تشفر زي كذا تفضل ديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
+                                     `📢 **يرجى الاانضمام الى قناة الديسكورد:**\n> https://discord.gg/SMDKFTttCW`;
 
                 await waitingMsg.edit(finalMessage);
             });
