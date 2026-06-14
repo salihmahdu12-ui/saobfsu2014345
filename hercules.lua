@@ -37,12 +37,12 @@ local colors = {
 local obfuscated_list = {}
 
 local BANNER = colors.blue .. [[
-                                _                      _        __   
+                                _                     _        __   
   /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __/ |      / /_  
  / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|  \ \ / /| |     | '_ \ 
 / __  /|  __/| |  | (__ | |_| || ||  __/\__ \   \ V / | |  _  | (_) |
 \/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_| (_)  \___/ 
-                                       ]] .. colors.reset
+                                                                     ]] .. colors.reset
 
 local function runSanityCheck(original_code, obfuscated_code)
     local function captureOutput(code)
@@ -125,7 +125,7 @@ local function printCliResult(input, output, time, options)
             print(colors.white .. options.sanity_info.got .. colors.reset)
             print(colors.red .. "Please dm 'zeusssz_' on Discord with with the file, or make an issue on the GitHub" .. colors.reset)
             print(colors.red .. "You may also join the Discord Server using the invite link" .. colors.reset)
-        else
+        } else
             print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
         end
     end
@@ -263,10 +263,10 @@ local function main()
     local features = {
         control_flow = false,
         string_encoding = false,
-        variable_renaming = false,
+        variable_renaming = true,     -- ✨ تم تفعيل تعديل المتغيرات تلقائياً هنا
         garbage_code = false,
         opaque_predicates = false,
-        bytecode_encoding = false,
+        bytecode_encoding = false,     -- 🚫 تم إيقاف أكواد الأرقام البايتكود المزعجة تلقائياً هنا
         compressor = false,
         StringToExpressions = false,
         VirtualMachine = false,
