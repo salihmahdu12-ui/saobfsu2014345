@@ -102,34 +102,40 @@ function handleOutput(outputPath, callback) {
     if (!fs.existsSync(outputPath)) {
         return callback("Output file missing", null);
     }
-    fs.readFile(outputPath, 'utf8', (readErr, obfuscatedResult) => {
+    // نمرر البيانات بنظام السلسلة الثنائية (binary) للحفاظ على البايتكود
+    fs.readFile(outputPath, 'binary', (readErr, obfuscatedResult) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         if (readErr) return callback(readErr, null);
-        
-        // 🔒 تم تعديلها: تسليم الكود الأصلي الصافي من هيراكولس بدون أسطر إضافية لمنع تفعيل الـ tamper detect
         callback(null, obfuscatedResult);
     });
 }
 
-// 🌐 مسار جلب السكريبت (يحجب المتصفحات ويقبل نظام ألعاب اللوا فقط)
+// 🌐 مسار جلب السكريبت المطور كلياً لإرسال بايتكود خام بدون تعديل
 app.get('/raw/:id', (req, res) => {
     const scriptId = req.params.id;
     const scriptPath = path.join(scriptsDir, `${scriptId}.lua`);
 
     if (!fs.existsSync(scriptPath)) {
-        return res.status(404).send('-- Error: Script key not found or expired.');
+        return res.status(404).send('-- Error: Script not found.');
     }
 
     const userAgent = req.headers['user-agent'] || '';
 
-    // حظر المتصفحات العادية فقط لحماية السورس، والسماح للعبة والـ Executor بالتنفيذ الفوري
+    // حظر المتصفحات العادية لضمان السرية، والسماح للـ Executors واللعبة
     if ((userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && !userAgent.includes('Roblox')) {
-        return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied: Direct browser access is prohibited.');
+        return res.status(403).send('🛡️ [SA | OBFUSCATOR] Access Denied.');
     }
 
-    const scriptCode = fs.readFileSync(scriptPath, 'utf8');
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(scriptCode);
+    // ✨ الحل هنا: نقرأ الملف كـ Buffer ونرسله خام مية بالمية لتفادي ضياع أو تشوه البايتكود المعقد
+    const fileBuffer = fs.readFileSync(scriptPath);
+    
+    res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Length': fileBuffer.length,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+    });
+    
+    res.end(fileBuffer);
 });
 
 app.post('/obfuscate', (req, res) => {
@@ -147,7 +153,7 @@ app.listen(PORT, () => {
     console.log(`==================================================`);
 });
 
-// 🤖 نظام بوت الديسكورد المطور لتسليم روابط الـ Loadstring
+// 🤖 نظام بوت الديسكورد
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -216,7 +222,8 @@ if (DISCORD_TOKEN) {
                 const scriptToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                 const savePath = path.join(scriptsDir, `${scriptToken}.lua`);
                 
-                fs.writeFileSync(savePath, result, 'utf8');
+                // حفظ بصيغة binary لضمان سلامة الملف مية بالمية
+                fs.writeFileSync(savePath, result, 'binary');
 
                 const appUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : `http://localhost:${PORT}`;
                 const loadstringLink = `${appUrl}/raw/${scriptToken}`;
