@@ -148,7 +148,7 @@ if (DISCORD_TOKEN) {
             }
             
             if (!codeToObfuscate) {
-                return message.reply(`⭐ **مرحباً بك في SA | OBFUSCATOR**\nيرجى إرسال الكود أو رفع ملف نصي مع الأمر هكذا:\n• \`!obf print("Hello")\`\n• \`!real\` (لتصحيح أخطاء السنتكس وتشفير الكود تلقائياً)`);
+                return message.reply(`⭐ **مرحباً بك في SA | OBFUSCATOR`);
             }
 
             let finalReportMessage = "";
@@ -159,24 +159,24 @@ if (DISCORD_TOKEN) {
                 codeToObfuscate = fixResult.fixedCode;
                 
                 if (fixResult.report.length > 0) {
-                    finalReportMessage = "🛠️ **[تقرير المصلح الآلي]:**\n" + fixResult.report.map(r => `> ${r}`).join('\n') + "\n\n";
+                    finalReportMessage = "🛠️ **[ المصلح االتلقائي]:**\n" + fixResult.report.map(r => `> ${r}`).join('\n') + "\n\n";
                 } else {
                     finalReportMessage = "🔍 **[تقرير الفحص]:** الكود سليم ولا يحتوي على أخطاء صياغة شائعة، جاري التشفير فوراً...\n\n";
                 }
             }
 
             // 🌀 دلع التحميل: إرسال رسالة انتظار تفاعلية مع إيموجي متحرك
-            const waitingMsg = await message.reply('⏳ **[SA | OBFUSCATOR]**\n> ⚙️ جاري معالجة الكود وحقنه داخل المحرك الافتراضي... يرجى الانتظار ثانية.');
+            const waitingMsg = await message.reply('⏳ **[SA | OBFUSCATOR]**\n> ⚙️ جاري معالجة الكود وتشفيره... يرجى الانتظار ثانية.');
 
             // تشغيل محرك التشفير الرئيسي
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
-                    return waitingMsg.edit(`❌ **فشل التشفير بسبب خطأ بالمحرك:**\n\`\`\`text\n${err}\n\`\`\`\n💡 **تلميح:** إذا كان كودك مأخوذ من Roblox أو لغات حديثة، جرب استخدام أمر \`!real\` ليقوم البوت بتهيئة الصياغة تلقائياً.`);
+                    return waitingMsg.edit(`❌ فشل التشفير جرب بامر !real`);
                 }
 
                 // دمج التقارير والحقوق الرسمية المظهرية للبوت
                 const footerText = "\n\n✨ *تم التشفير بنجاح بواسطة برمجيات: **SA | OBFUSCATOR***";
-                const fullResponseText = finalReportMessage + "💎 **[SA | OBFUSCATOR] - التشفير النهائي جاهز ومحصن:**" + footerText;
+                const fullResponseText = finalReportMessage + "💎 **[SA | OBFUSCATOR] - التشفير النهائي جاهز ومحمي بالكامل:**" + footerText;
 
                 // إذا كان الناتج طويلاً أو أرسل ملفاً، نعيد له الناتج كملف فخم ومنظم
                 if (result.length > 1900 || message.attachments.size > 0) {
